@@ -14,16 +14,70 @@ const dbConfig = {
 const pool = new Pool(dbConfig);
 
 // Test the connection
-pool.query("SELECT NOW()", (err, result) => {
+pool.connect((err, client, release) => {
   if (err) {
-    console.error("Error connecting to the database", err);
+    console.error("Error connecting to the database:", err);
   } else {
-    console.log(
-      "Connected to the database. Current timestamp:",
-      result.rows[0].now
-    );
+    console.log("Connected to the database.");
+    client.query("SELECT NOW()", (err, result) => {
+      release();
+      if (err) {
+        console.error("Error running query:", err);
+      } else {
+        console.log("Current timestamp:", result.rows[0].now);
+      }
+    });
   }
 });
+
+async function calculateDistance(gid1, gid2) {
+  const client = await pool.connect();
+  try {
+    const query = {
+      text: `
+        SELECT ST_Distance(
+          (SELECT geom FROM public."D7_Points" WHERE g_id = $1),
+          (SELECT geom FROM public."D7_Points" WHERE g_id = $2)
+        ) as distance;
+      `,
+      values: [gid1, gid2],
+    };
+
+    const result = await client.query(query);
+    const distance = result.rows[0].distance;
+    return distance;
+  } catch (error) {
+    console.error('Error calculating distance:', error);
+    return null;
+  } finally {
+    client.release();
+  }
+}
+
+app.get("/calculateDistance", async (req, res) => {
+  const { saltKey, gid1, gid2 } = req.query;
+  try {
+    if (saltKey === "c4f1e08a2b5d1e3f8d9a0b6c3e2d5a1") {
+      const distance = await calculateDistance(gid1, gid2);
+      if (distance === null) {
+        res.status(404).send("Error calculating distance");
+        return;
+      }
+      res.json({ distance });
+    } else {
+      res.json({ message: "Unauthorized Access" });
+    }
+  } catch (error) {
+    console.error('Error calculating distance:', error);
+    res.status(500).send("Internal Server Error");
+  }
+});
+
+
+
+
+
+
 
 // Query to get ogc_fid from global_india_khasra
 app.get("/adjData", async (req, res) => {
@@ -32,10 +86,11 @@ app.get("/adjData", async (req, res) => {
 
   try {
     if (saltKey == "c4f1e08a2b5d1e3f8d9a0b6c3e2d5a1") {
+      const tableName = district;
       const queryResult = await pool.query(
         `
-      SELECT ogc_fid
-      FROM global_india_khasra
+      SELECT id
+      FROM ${tableName}
       WHERE
         state = $1 AND
         district = $2 AND
@@ -53,17 +108,17 @@ app.get("/adjData", async (req, res) => {
         return;
       }
 
-      const ogc_fid = queryResult.rows[0].ogc_fid;
+      const id = queryResult.rows[0].id;
 
-      // Now use ogc_fid in the second query
+      // Now use id in the second query
       const customQueryResult = await pool.query(
         `
       SELECT a.khasra_no, ST_AsText(ST_GeomFromWKB(ST_Centroid(a.geom)))
-      FROM test1 AS a
-      JOIN test1 AS b ON ST_Intersects(ST_Buffer(a.geom, 0.002), b.geom)
-      WHERE b.ogc_fid =$1 AND a.ogc_fid != $1;
+      FROM ${tableName} AS a
+      JOIN ${tableName} AS b ON ST_Intersects(ST_Buffer(a.geom, 0.002), b.geom)
+      WHERE b.id =$1 AND a.id != $1;
     `,
-        [ogc_fid]
+        [id]
       );
 
       // Process the result as needed
@@ -85,6 +140,7 @@ app.get("/getData", async (req, res) => {
 
   try {
     if (saltKey === "EgNIgHpqbW3ja1EgWrsPC1c4FQgJukYs9jhlswdC") {
+      const tableName = district;
       const queryResult = await pool.query(
         `
         SELECT
@@ -94,10 +150,8 @@ app.get("/getData", async (req, res) => {
           tehsil,
           village,
           khasra_no,
-          area_ac,
-          shape_leng,
-          shape_area
-        FROM global_india_khasra
+          area_ac
+        FROM ${tableName}
         WHERE
           state = $1 AND
           district = $2 AND
@@ -105,7 +159,7 @@ app.get("/getData", async (req, res) => {
           village = $4 AND
           lgd_code = $5 AND
           khasra_no = $6
-        LIMIT 100
+        LIMIT 1
       `,
         [state, district, tehsil, village, lgd_code, khasra_no]
       );
@@ -151,3 +205,4 @@ app.get("/getData", async (req, res) => {
 app.listen(6000, () => {
   console.log("Server is running on port 6000");
 });
+
