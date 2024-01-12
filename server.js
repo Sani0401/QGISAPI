@@ -13,7 +13,6 @@ const dbConfig = {
 
 const pool = new Pool(dbConfig);
 
-// Test the connection
 pool.connect((err, client, release) => {
   if (err) {
     console.error("Error connecting to the database:", err);
@@ -47,7 +46,7 @@ async function calculateDistance(gid1, gid2) {
     const distance = result.rows[0].distance;
     return distance;
   } catch (error) {
-    console.error('Error calculating distance:', error);
+    console.error("Error calculating distance:", error);
     return null;
   } finally {
     client.release();
@@ -68,16 +67,10 @@ app.get("/calculateDistance", async (req, res) => {
       res.json({ message: "Unauthorized Access" });
     }
   } catch (error) {
-    console.error('Error calculating distance:', error);
+    console.error("Error calculating distance:", error);
     res.status(500).send("Internal Server Error");
   }
 });
-
-
-
-
-
-
 
 // Query to get ogc_fid from global_india_khasra
 app.get("/adjData", async (req, res) => {
@@ -103,8 +96,8 @@ app.get("/adjData", async (req, res) => {
         [state, district, tehsil, village, lgd_code, khasra_no]
       );
 
-      if (queryResult.rows.length === 0) {
-        res.status(404).send("Record not found");
+      if (queryResult === 0) {
+        res.status(404).send("Khasra not found");
         return;
       }
 
@@ -120,7 +113,9 @@ app.get("/adjData", async (req, res) => {
     `,
         [id]
       );
-
+      if (customQueryResult.rows[0].length === 0) {
+        res.status(500).json({ message: "No neighbouring polygons" });
+      }
       // Process the result as needed
       res.json(customQueryResult.rows);
     } else {
@@ -128,7 +123,15 @@ app.get("/adjData", async (req, res) => {
     }
   } catch (error) {
     console.error("Error executing queries", error);
-    res.status(500).send("Internal Server Error");
+
+    if (
+      error instanceof TypeError &&
+      error.message.includes("Cannot read properties of undefined")
+    ) {
+      res.status(400).json({ message: "Khasra not found" });
+    } else {
+      res.status(500).send("Internal Server Error");
+    }
   }
 });
 
@@ -137,7 +140,27 @@ app.get("/getData", async (req, res) => {
 
   const { saltKey, state, district, tehsil, village, lgd_code, khasra_no } =
     req.query;
-
+  //Checking for salt key
+  if (
+    saltKey === null ||
+    saltKey != "EgNIgHpqbW3ja1EgWrsPC1c4FQgJukYs9jhlswdC"
+  ) {
+    res
+      .status(400)
+      .json({ message: "Incorrect or missing salt key: UnAuthorized Acess" });
+  }
+  //Checking for any property is null.
+  if (
+    !saltKey ||
+    !state ||
+    !district ||
+    !tehsil ||
+    !village ||
+    !lgd_code ||
+    !khasra_no
+  ) {
+    res.status(400).json({ message: "Invalid Request Missing Fields" });
+  }
   try {
     if (saltKey === "EgNIgHpqbW3ja1EgWrsPC1c4FQgJukYs9jhlswdC") {
       const tableName = district;
@@ -163,7 +186,47 @@ app.get("/getData", async (req, res) => {
       `,
         [state, district, tehsil, village, lgd_code, khasra_no]
       );
+      console.log(queryResult);
 
+      if (
+        !queryResult.rows[0].geometry ||
+        !queryResult.rows[0].state ||
+        !queryResult.rows[0].district ||
+        !queryResult.rows[0].tehsil ||
+        !queryResult.rows[0].village ||
+        !queryResult.rows[0].khasra_no ||
+        !queryResult.rows[0].area_ac
+      ) {
+        var absentArray = [];
+        var final = "";
+        if (!queryResult.rows[0].geometry) {
+          absentArray.push("Geometry");
+        }
+        if (!queryResult.rows[0].state) {
+          absentArray.push("State");
+        }
+        if (!queryResult.rows[0].district) {
+          absentArray.push("District");
+        }
+        if (!queryResult.rows[0].tehsil) {
+          absentArray.push("Tehsil");
+        }
+        if (!queryResult.rows[0].village) {
+          absentArray.push("Village");
+        }
+        if (!queryResult.rows[0].khasra_no) {
+          absentArray.push("khasra_no");
+        }
+        if (!queryResult.rows[0].area_ac) {
+          absentArray.push("area_ac");
+        }
+        for (var i = 0; i < absentArray.length; i++) {
+          final += absentArray[i] + " , ";
+        }
+        res.status(401).json({
+          message: `The following field(s) are not available in DB: ${final}`,
+        });
+      }
       // Transform the result into GeoJSON format
       const features = queryResult.rows.map((row) => {
         return {
@@ -193,11 +256,12 @@ app.get("/getData", async (req, res) => {
       };
 
       res.json(geoJsonResponse);
-    } else {
-      res.status(401).json({ message: "Unauthorized Access" });
     }
   } catch (error) {
-    console.error("Error executing query", error);
+    if (error.code === "42P01") {
+      res.status(404).json({ message: "Check the district name" });
+    }
+    console.error("Error executing query", error.code);
     res.status(500).send("Internal Server Error");
   }
 });
@@ -205,4 +269,3 @@ app.get("/getData", async (req, res) => {
 app.listen(6000, () => {
   console.log("Server is running on port 6000");
 });
-
