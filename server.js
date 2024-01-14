@@ -77,6 +77,11 @@ app.get("/adjData", async (req, res) => {
   const { saltKey, state, district, tehsil, village, lgd_code, khasra_no } =
     req.query;
 
+  if (saltKey === null || saltKey != "c4f1e08a2b5d1e3f8d9a0b6c3e2d5a1") {
+    res
+      .status(401)
+      .json({ message: "Incorrect or missing salt key: UnAuthorized Acess" });
+  }
   try {
     if (saltKey == "c4f1e08a2b5d1e3f8d9a0b6c3e2d5a1") {
       const tableName = district;
@@ -136,20 +141,18 @@ app.get("/adjData", async (req, res) => {
 });
 
 app.get("/getData", async (req, res) => {
-  console.log("Request received");
-
   const { saltKey, state, district, tehsil, village, lgd_code, khasra_no } =
     req.query;
-  //Checking for salt key
+
   if (
     saltKey === null ||
     saltKey != "EgNIgHpqbW3ja1EgWrsPC1c4FQgJukYs9jhlswdC"
   ) {
     res
-      .status(400)
+      .status(401)
       .json({ message: "Incorrect or missing salt key: UnAuthorized Acess" });
   }
-  //Checking for any property is null.
+
   if (
     !saltKey ||
     !state ||
@@ -160,6 +163,22 @@ app.get("/getData", async (req, res) => {
     !khasra_no
   ) {
     res.status(400).json({ message: "Invalid Request Missing Fields" });
+  }
+  try {
+    const query = await pool.query(
+      `SELECT khasra_no FROM ${district} WHERE district = $1 AND khasra_no = $2 AND lgd_code = $3 `,
+      [district, khasra_no, lgd_code]
+    );
+
+    if (query.rows.length === 0) {
+      res
+        .status(400)
+        .json({ message: `Missing kasra number ${district} ${khasra_no} ` });
+    } else {
+      console.log("This is khasra data", query.rows);
+    }
+  } catch (error) {
+    console.error("Error getting khasra", error);
   }
   try {
     if (saltKey === "EgNIgHpqbW3ja1EgWrsPC1c4FQgJukYs9jhlswdC") {
@@ -187,47 +206,36 @@ app.get("/getData", async (req, res) => {
         [state, district, tehsil, village, lgd_code, khasra_no]
       );
       console.log(queryResult);
-
-      if (
-        !queryResult.rows[0].geometry ||
-        !queryResult.rows[0].state ||
-        !queryResult.rows[0].district ||
-        !queryResult.rows[0].tehsil ||
-        !queryResult.rows[0].village ||
-        !queryResult.rows[0].khasra_no ||
-        !queryResult.rows[0].area_ac
-      ) {
-        var absentArray = [];
-        var final = "";
-        if (!queryResult.rows[0].geometry) {
-          absentArray.push("Geometry");
-        }
-        if (!queryResult.rows[0].state) {
-          absentArray.push("State");
-        }
-        if (!queryResult.rows[0].district) {
-          absentArray.push("District");
-        }
-        if (!queryResult.rows[0].tehsil) {
-          absentArray.push("Tehsil");
-        }
-        if (!queryResult.rows[0].village) {
-          absentArray.push("Village");
-        }
-        if (!queryResult.rows[0].khasra_no) {
-          absentArray.push("khasra_no");
-        }
-        if (!queryResult.rows[0].area_ac) {
-          absentArray.push("area_ac");
-        }
-        for (var i = 0; i < absentArray.length; i++) {
-          final += absentArray[i] + " , ";
-        }
-        res.status(401).json({
-          message: `The following field(s) are not available in DB: ${final}`,
+      if (queryResult.rows.length == 0) {
+        res.status(400).json({ message: "Check for state name" });
+      }
+      var missingFields = [];
+      if (!queryResult.rows[0].geometry) {
+        missingFields.push("geometry");
+      }
+      if (!queryResult.rows[0].state) {
+        missingFields.push("state");
+      }
+      if (!queryResult.rows[0].district) {
+        missingFields.push("district");
+      }
+      if (!queryResult.rows[0].tehsil) {
+        missingFields.push("tehsil");
+      }
+      if (!queryResult.rows[0].village) {
+        missingFields.push("village");
+      }
+      if (!queryResult.rows[0].khasra_no) {
+        missingFields.push("khasra_no");
+      }
+      if (!queryResult.rows[0].area_ac) {
+        missingFields.push("area_ac");
+      }
+      if (missingFields.length > 0) {
+        res.status(400).json({
+          message: `Missing fields, empty response for ${missingFields}`,
         });
       }
-      // Transform the result into GeoJSON format
       const features = queryResult.rows.map((row) => {
         return {
           type: "Feature",
@@ -261,7 +269,7 @@ app.get("/getData", async (req, res) => {
     if (error.code === "42P01") {
       res.status(404).json({ message: "Check the district name" });
     }
-    console.error("Error executing query", error.code);
+    console.error("Error executing query", error);
     res.status(500).send("Internal Server Error");
   }
 });
