@@ -279,11 +279,11 @@ app.get("/adjData", async (req, res) => {
 
   try {
     if (saltKey == "c4f1e08a2b5d1e3f8d9a0b6c3e2d5a1") {
-      const tableName = 'master_data';
+      const tableName = district;
       const queryResult = await pool.query(
         `
       SELECT id
-      FROM master_data
+      FROM ${tableName}
       WHERE
       TRIM(UPPER(state)) ILIKE TRIM(UPPER($1)) AND
       TRIM(UPPER(district)) ILIKE TRIM(UPPER($2)) AND
@@ -659,7 +659,7 @@ app.get("/getData", async (req, res) => {
 
                 
                 await sendEmail(state, district, tehsil, village, lgd_code, khasra_no);
-                res.status(400).json({ message: "Invalid input" });
+                res.status(400).json({ message: "Invalid " });
                 
               }
 
