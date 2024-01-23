@@ -1,4 +1,3 @@
-
 const express = require("express");
 const app = express();
 const { Pool } = require("pg");
@@ -64,7 +63,7 @@ async function updateLogEntry(saltKey, lgd_code, khasra_no) {
 
     const result = await pool.query(query, values);
 
-    //console.log(`Rows affected: ${result.rowCount}`);
+    //console.log(Rows affected: ${result.rowCount});
   } catch (error) {
     console.error('Error updating log entry:', error);
   }
@@ -159,12 +158,12 @@ app.get("/calculateDistance", async (req, res) => {
 //   try {
 //     // Query to check if khasra number exists
 //     const khasraQuery = await pool.query(
-//       `SELECT khasra_no FROM ${district} WHERE district = $1 AND khasra_no = $2 AND lgd_code = $3`,
+//       SELECT khasra_no FROM ${district} WHERE district = $1 AND khasra_no = $2 AND lgd_code = $3,
 //       [district, khasra_no, lgd_code]
 //     );
 
 //     if (khasraQuery.rows.length === 0) {
-//       res.status(400).json({ message: `Missing khasra number: ${khasra_no}` });
+//       res.status(400).json({ message: Missing khasra number: ${khasra_no} });
 //       return;
 //     }
 
@@ -201,7 +200,7 @@ app.get("/calculateDistance", async (req, res) => {
 //       .filter(field => !queryResult.rows[0][field]);
 
 //     if (missingFields.length > 0) {
-//       res.status(400).json({ message: `Missing fields, empty response for ${missingFields}` });
+//       res.status(400).json({ message: Missing fields, empty response for ${missingFields} });
 //       return;
 //     }
 
@@ -297,9 +296,9 @@ app.get("/adjData", async (req, res) => {
       );
 
       console.log(queryResult);
-      if (!queryResult) {
+      if (!queryResult.rows[0]) {
         await sendEmail(state, district, tehsil, village, lgd_code, khasra_no);
-        res.status(400).send("Data not found");
+        res.status(400).send("Invalid input");
         return;
       }
 
@@ -350,7 +349,7 @@ app.get("/adjData", async (req, res) => {
 //     const client = await pool.connect();
 
 //     // Execute a query to check if the state exists
-//     const result = await client.query(`SELECT 1 FROM  master_data WHERE state = $1`, [state]);
+//     const result = await client.query(SELECT 1 FROM  master_data WHERE state = $1, [state]);
 //       console.log(result.rows.length);
 //     // Release the client back to the pool
 //     client.release();
@@ -372,7 +371,7 @@ app.get("/adjData", async (req, res) => {
 //     const client = await pool.connect();
 
 //     // Execute a query to check if the state exists
-//     const result = await client.query(`SELECT 1 FROM  master_data WHERE tehsil = $1`, [tehsil]);
+//     const result = await client.query(SELECT 1 FROM  master_data WHERE tehsil = $1, [tehsil]);
 //       console.log(result.rows.length);
 //     // Release the client back to the pool
 //     client.release();
@@ -393,7 +392,7 @@ app.get("/adjData", async (req, res) => {
 //     const client = await pool.connect();
 
 //     // Execute a query to check if the state exists
-//     const result = await client.query(`SELECT 1 FROM  master_data WHERE lgd_code = $1`, [lgd_code]);
+//     const result = await client.query(SELECT 1 FROM  master_data WHERE lgd_code = $1, [lgd_code]);
 //       console.log(result.rows.length);
 //     // Release the client back to the pool
 //     client.release();
@@ -415,7 +414,7 @@ app.get("/adjData", async (req, res) => {
 //     const client = await pool.connect();
 
 //     // Execute a query to check if the state exists
-//     const result = await client.query(`SELECT 1 FROM  master_data WHERE district = $1`, [district]);
+//     const result = await client.query(SELECT 1 FROM  master_data WHERE district = $1, [district]);
 //       console.log(result.rows.length);
 //     // Release the client back to the pool
 //     client.release();
@@ -528,7 +527,7 @@ app.get("/getData", async (req, res) => {
 //   let d = state;
 //   if (!stateExists) {
 //     console.log('Failure: State does not exist in the Database');
-//     res.status(401).json({ message: `No matching record found ${d}` });
+//     res.status(401).json({ message: No matching record found ${d} });
 //   }
 //   console.log("state "+stateExists);
 //   // Make sure to close the pool if necessary
@@ -542,7 +541,7 @@ app.get("/getData", async (req, res) => {
 //   let d = tehsil;
 //   if (!stateExists) {
 //     console.log('Failure: tahshil does not exist in the Database.');
-//     res.status(403).json({ message: `No matching record found ${d}` });
+//     res.status(403).json({ message: No matching record found ${d} });
 //   }
 //   console.log("tehsil"+stateExists);
 //   // Make sure to close the pool if necessary
@@ -554,7 +553,7 @@ app.get("/getData", async (req, res) => {
 //   let d = lgd_code;
 //   if (!stateExists) {
 //     console.log('Failure: State does not exist in the Database');
-//     res.status(404).json({ message: `No matching record found ${d}` });
+//     res.status(404).json({ message: No matching record found ${d} });
 //   }
 //   console.log("lgd_code "+stateExists);
 //   // Make sure to close the pool if necessary
@@ -567,7 +566,7 @@ app.get("/getData", async (req, res) => {
 //   let d = district;
 //   if (!stateExists) {
 //     console.log('Failure: district does not exist in the Database');
-//     res.status(402).json({ message: `No matching record found ${d}` });
+//     res.status(402).json({ message: No matching record found ${d} });
 //   }
 //   console.log("district "+ stateExists);
 //   // Make sure to close the pool if necessary
@@ -703,7 +702,7 @@ app.get("/getData", async (req, res) => {
 
               // if (missingFields.length > 0) {
               //   res.status(400).json({
-              //     message: `Missing fields, empty response for ${missingFields}`,
+              //     message: Missing fields, empty response for ${missingFields},
               //   });
               // }
 
