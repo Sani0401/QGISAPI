@@ -298,7 +298,7 @@ app.get("/adjData", async (req, res) => {
       console.log(queryResult);
       if (!queryResult.rows[0]) {
         await sendEmail(state, district, tehsil, village, lgd_code, khasra_no);
-        res.status(400).send("Invalid input");
+        res.status(400).json({ message: "Invalid input" });
         return;
       }
 
