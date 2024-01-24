@@ -17,8 +17,8 @@ async function sendEmail(saltKey, state, district, tehsil, village, lgd_code, kh
 
   const mailOptions = {
     from: 'testqgis99@gmail.com',
-    to: 'jalindarjk12@gmail.com',
-    subject: 'Error code from DB',
+    to: 'jalindarjk12@gmail.com, info@jntpune.com, jaspune@gmail.com',
+    subject: 'API: Error Code from Database',
     text: `
       Hello,
 

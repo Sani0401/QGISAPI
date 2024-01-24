@@ -17,8 +17,8 @@ async function sendEmailLimit(saltKey) {
    
   const mailOptions = {
     from: 'testqgis99@gmail.com',
-    to: 'jalindarjk12@gmail.com',
-    subject: 'Limit exceeded for ${saltKey}',
+    to: 'jalindarjk12@gmail.com, info@jntpune.com, jaspune@gmail.com',
+    subject: 'API Limit Exceeded Notification',
     text: `
       Hello,
 
