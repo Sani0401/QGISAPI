@@ -25,7 +25,7 @@ CounterMap.set("EgNIgHpqbW3ja1EgWrsPC1c4FQgJukYs9jhlswdC",0);
 
 
 function apiCounter(saltKey,lgd_code,khasra_no){
-  if(CounterMap.get(saltKey) <= 5 ){
+  if(CounterMap.get(saltKey) <= 250000 ){
         CounterMap.set(saltKey,(CounterMap.get(saltKey))+1);
      //   updateLogEntry(saltKey,lgd_code,khasra_no)
         console.log(CounterMap);
@@ -37,7 +37,7 @@ function apiCounter(saltKey,lgd_code,khasra_no){
       await sendEmailLimit(saltKey);
     })();
 
-    return res.status(402).json({ message: "Trial ended..." });
+   // return res.status(402).json({ message: "Trial ended..." });
     return false;
   }   
 }
