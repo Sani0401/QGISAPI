@@ -21,9 +21,6 @@ async function sendEmailLimit(saltKey) {
     subject: 'API Limit Exceeded Notification',
     text: `
       Hello,
-
-      This email includes the following variables:
-
        ${saltKey} has exceeded limit.
        Please check.
       

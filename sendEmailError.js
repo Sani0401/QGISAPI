@@ -2,7 +2,7 @@
 const nodemailer = require('nodemailer');
 
 // Function to send an email
-async function sendEmail(saltKey, state, district, tehsil, village, lgd_code, khasra_no) {
+async function sendEmail(saltKey, district,lgd_code, khasra_no ) {
   const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
@@ -12,25 +12,20 @@ async function sendEmail(saltKey, state, district, tehsil, village, lgd_code, kh
   });
 
 
-
+  const subject = `API: Error Code - Salt Key: ${saltKey}`;
 
 
   const mailOptions = {
     from: 'testqgis99@gmail.com',
     to: 'jalindarjk12@gmail.com, info@jntpune.com, jaspune@gmail.com',
-    subject: 'API: Error Code from Database',
+    subject: subject,
     text: `
       Hello,
-
       This email includes the following variables:
-
-      Salt Key: ${saltKey}
-      State: ${state}
-      District: ${district}
-      Tehsil: ${tehsil}
-      Village: ${village}
-      LGD Code: ${lgd_code}
-      Khasra Number: ${khasra_no}
+      Salt Key:        ${saltKey}
+      District:        ${district}     
+      LGD Code:        ${lgd_code}
+      Khasra Number:   ${khasra_no}
     `
   };
 

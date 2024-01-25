@@ -1,18 +1,20 @@
 
-const express = require("express");
-const app = express();
-const { Pool } = require("pg");
-const { sendEmail } = require('./sendEmailError.js');
-const {sendEmailLimit} = require('./sendEmail_ApiLimit');
+    const express = require("express");
+    const app = express();
+    const { Pool } = require("pg");
+    const { sendEmail } = require('./sendEmailError.js');
+    const {sendEmailLimit} = require('./sendEmail_ApiLimit.js');
+//const { sendEmailadj } = require("./sendemailadj.js");
+
 
 // Replace these values with your PostgreSQL connection details
-const dbConfig = {
-  user: "tcgs_ap",
-  host: "geoserver.quantasip.com",
-  database: "qg_verse",
-  password: "FwC&bc$2#tj4%#ZQ",
-  port: 5432, // Default PostgreSQL port
-};
+        const dbConfig = {
+        user: "tcgs_ap",
+        host: "geoserver.quantasip.com",
+        database: "qg_verse",
+        password: "FwC&bc$2#tj4%#ZQ",
+        port: 5432, // Default PostgreSQL port
+        };
 
 
 
@@ -23,7 +25,7 @@ CounterMap.set("EgNIgHpqbW3ja1EgWrsPC1c4FQgJukYs9jhlswdC",0);
 
 
 function apiCounter(saltKey,lgd_code,khasra_no){
-  if(CounterMap.get(saltKey) <= 250000 ){
+  if(CounterMap.get(saltKey) <= 5 ){
         CounterMap.set(saltKey,(CounterMap.get(saltKey))+1);
      //   updateLogEntry(saltKey,lgd_code,khasra_no)
         console.log(CounterMap);
@@ -39,6 +41,8 @@ function apiCounter(saltKey,lgd_code,khasra_no){
     return false;
   }   
 }
+
+
 
 async function updateLogEntry(saltKey, lgd_code, khasra_no) {
   try {
@@ -235,12 +239,12 @@ let bb = 0;
 
 app.get("/adjData", async (req, res) => {
  
-  const { saltKey, state, district, tehsil, village, lgd_code, khasra_no } =
+  const { saltKey, district,village, lgd_code, khasra_no } =
   req.query;
 
   // console.log(req.query);
   // console.log(state+" after");
-  if (!state || !district || !tehsil || !village || !lgd_code || !khasra_no || !saltKey) {
+  if ( !village || !lgd_code || !khasra_no || !saltKey || !district) {
     return res.status(400).json({ message: "Invalid request, missing field." });
   }
 
@@ -255,39 +259,35 @@ if ( !(saltKey == "EgNIgHpqbW3ja1EgWrsPC1c4FQgJukYs9jhlswdC" || saltKey == "c4f1
 //Check State ,district ,tehsil and lgd_code in master_data
 try {
   // Check State, District, Tehsil, Village, and LGD Code existence
-  const [stateExists, districtExists, tehsilExists, lgdCodeExists, villageExists] = await Promise.all([
-    checkStateExists(state),
+  const [districtExists,lgdCodeExists, villageExists] = await Promise.all([
     checkStateExists1(district),
-    checkStateExists2(tehsil),
     checkStateExists3(lgd_code),
     checkStateExists4(village),
   ]);
 
 
-  b = stateExists && districtExists && tehsilExists && lgdCodeExists && villageExists;
+  b =  lgdCodeExists || villageExists;
   // Check if any of the required entities do not exist
-  if (!stateExists) {
-    await sendEmail(state, district, tehsil, village, lgd_code, khasra_no);
-    return res.status(400).json({ message: `Wrong state: ${state}` });
-  }
   if (!districtExists) {
-    await sendEmail(state, district, tehsil, village, lgd_code, khasra_no);
+    await sendEmail(saltKey, district,lgd_code, khasra_no);
     return res.status(400).json({ message: `Wrong district: ${district}` });
   }
-  if (!tehsilExists) {
-    await sendEmail(state, district, tehsil, village, lgd_code, khasra_no);
-    return res.status(400).json({ message: `Wrong tehsil: ${tehsil}` });
-  }
-  if (!lgdCodeExists) {
-    await sendEmail(state, district, tehsil, village, lgd_code, khasra_no);
-    return res.status(400).json({ message: `Wrong lgd_code: ${lgd_code}` });
-  }
-  if (!villageExists) {
-    await sendEmail(state, district, tehsil, village, lgd_code, khasra_no);
-    return res.status(400).json({ message: `Wrong village: ${village}` });
-  }
+  if (!(lgdCodeExists || villageExists)) {
+    await sendEmail(saltKey, district,lgd_code, khasra_no);
+    if (!villageExists) {
+       
+        return res.status(400).json({ message: `Wrong village: ${village}` });
+      }
+      if(!lgdCodeExists){
+
+
+       return res.status(400).json({ message: `Wrong lgd_code: ${lgd_code}` });
+      }  
+}
+ 
 } catch (error) {
   console.error('Error checking existence:', error);
+ // await sendEmail(saltKey, district,village, lgd_code, khasra_no);
   return res.status(500).json({ message: 'Internal Server Error' });
 }
 
@@ -310,27 +310,22 @@ try{
             area_ac
           FROM ${tableName}
           WHERE
-            TRIM(UPPER(state)) ILIKE TRIM(UPPER($1)) AND
-            TRIM(UPPER(district)) ILIKE TRIM(UPPER($2)) AND
-            TRIM(UPPER(tehsil)) ILIKE TRIM(UPPER($3)) AND
-            TRIM(UPPER(village)) ILIKE TRIM(UPPER($4)) AND
-            TRIM(lgd_code) = $5 AND
-            TRIM(khasra_no) = $6
+          
+            TRIM(khasra_no) = $1
           LIMIT 1;
 
     `,
-      [state, district, tehsil, village, lgd_code, khasra_no]
+      [khasra_no]
     );
 
 
-  // console.log(queryResult.rows[0]); 
+   console.log("jj"+queryResult.rows[0]); 
 
 
     if (queryResult.rows.length == 0) {
 
-      await sendEmail(state, district, tehsil, village, lgd_code, khasra_no);
-
-      return res.status(404).json({ message: "Khasara not found" });
+        await sendEmail(saltKey, district,lgd_code, khasra_no);
+      return res.status(400).json({ message: `Khasra not found ${khasra_no}` });
       
     }
     console.log("Khasra" + (queryResult.rows.length > 0) );
@@ -338,7 +333,9 @@ try{
 }
 
 }catch(error){
-  console.log(" Above  4 param not getting in DB"+ error);
+  console.log(error);
+  return res.status(500).send("Internal Server Error");
+
 }
 
 
@@ -353,21 +350,18 @@ try{
       SELECT id
       FROM ${tableName}
       WHERE
-        state = $1 AND
-        district = $2 AND
-        tehsil = $3 AND
-        village = $4 AND
-        lgd_code = $5 AND
-        khasra_no = $6
+       
+        khasra_no = $1
       LIMIT 1
     `,
-        [state, district, tehsil, village, lgd_code, khasra_no]
+        [khasra_no]
       );
 
-    
+      console.log(queryResult.rows[0]); 
       if (queryResult.rows.length === 0) {
-          console.log();("id not found");
-        return;
+          console.log("id not found");
+          await sendEmail(saltKey, district,lgd_code, khasra_no);
+        return res.status(400).json({ message: "Data not found " }); ;
       }
       console.log(queryResult.rows[0].id); 
       const id = queryResult.rows[0].id;
@@ -383,7 +377,7 @@ try{
         [id]
       );
       if (customQueryResult.rows[0].length === 0) {
-        await sendEmail(state, district, tehsil, village, lgd_code, khasra_no);
+        await sendEmail(saltKey, district,lgd_code, khasra_no);
         return res.status(400).json({ message: "No neighbouring polygons" });
       }
 
@@ -395,11 +389,11 @@ try{
           updateLogEntry(saltKey,lgd_code,khasra_no)
           return res.json(customQueryResult.rows);
         } else {
-          return res.status(403).json({ message: 'Access denied! Limit reached.' });
+          return res.status(402).json({ message: 'Access denied! Limit reached.' });
         }
       } catch (error) {
         console.log(error);
-        return res.status(429).json({ message: 'API access limit exceeded' });
+        return res.status(402).json({ message: 'API access limit exceeded' });
       }
 
 
@@ -411,7 +405,7 @@ try{
   } catch (error) {
        console.error("Error executing queries", error);
 
-      await sendEmail(state, district, tehsil, village, lgd_code, khasra_no);
+      // await sendEmail(saltKey, district,village, lgd_code, khasra_no);
       return res.status(500).send("Internal Server Error");
     
   }
@@ -561,23 +555,23 @@ app.get("/getData", async (req, res) => {
 
     // Check if any of the required entities do not exist
     if (!stateExists) {
-      await sendEmail(state, district, tehsil, village, lgd_code, khasra_no);
+        await sendEmail(saltKey, district,lgd_code, khasra_no);
       return res.status(400).json({ message: `Wrong state: ${state}` });
     }
     if (!districtExists) {
-      await sendEmail(state, district, tehsil, village, lgd_code, khasra_no);
+        await sendEmail(saltKey, district,lgd_code, khasra_no);
       return res.status(400).json({ message: `Wrong district: ${district}` });
     }
     if (!tehsilExists) {
-      await sendEmail(state, district, tehsil, village, lgd_code, khasra_no);
+        await sendEmail(saltKey, district,lgd_code, khasra_no);
       return res.status(400).json({ message: `Wrong tehsil: ${tehsil}` });
     }
     if (!lgdCodeExists) {
-      await sendEmail(state, district, tehsil, village, lgd_code, khasra_no);
+        await sendEmail(saltKey, district,lgd_code, khasra_no);
       return res.status(400).json({ message: `Wrong lgd_code: ${lgd_code}` });
     }
     if (!villageExists) {
-      await sendEmail(state, district, tehsil, village, lgd_code, khasra_no);
+        await sendEmail(saltKey, district,lgd_code, khasra_no);
       return res.status(400).json({ message: `Wrong village: ${village}` });
     }
   } catch (error) {
@@ -613,17 +607,17 @@ app.get("/getData", async (req, res) => {
     );
 
     if (queryResult.rows.length === 0) {
-      await sendEmail(state, district, tehsil, village, lgd_code, khasra_no);
-      return res.status(404).json({ message: "Khasara_no not found" });
+        await sendEmail(saltKey, district,lgd_code, khasra_no);
+      return res.status(400).json({ message: `Wrong khasra_no : ${khasra_no}` });
     }
 
     if (!queryResult.rows[0].geometry) {
-      await sendEmail(state, district, tehsil, village, lgd_code, khasra_no);
+        await sendEmail(saltKey, district,lgd_code, khasra_no);
       return res.status(404).json({ message: "Field Geometry not found" });
     }
 
     if (!queryResult.rows[0].area_ac) {
-      await sendEmail(state, district, tehsil, village, lgd_code, khasra_no);
+        await sendEmail(saltKey, district,lgd_code, khasra_no);
       return res.status(404).json({ message: "Field area_ac not found" });
     }
 
@@ -660,7 +654,7 @@ app.get("/getData", async (req, res) => {
         updateLogEntry(saltKey,lgd_code,khasra_no)
         res.status(200).json(geoJsonResponse);
       } else {
-        res.status(403).json({ message: 'Access denied! Limit reached.' });
+        res.status(402).json({ message: 'Access denied! Limit reached.' });
       }
     
 
