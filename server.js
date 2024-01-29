@@ -70,12 +70,12 @@ const {sendEmailLimit} = require('./sendEmail_ApiLimit');
     
     app.get('/download', async (req, res) => {
        console.log(req.query);
-       const {lgd_code , satbara}  = req.query;
-       console.log(satbara);
+       const {lgd_code , khasra_no}  = req.query;
+       console.log(khasra_no);
        console.log(lgd_code);
        
         const folderName = lgd_code;  // Assuming 'Akola' is a fixed folder
-        const fileNumber = satbara; 
+        const fileNumber = khasra_no; 
         const filePath = `Akola/${folderName}/${fileNumber}.pdf`;
         
         console.log("Inside"+folderName);
