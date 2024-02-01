@@ -5,6 +5,13 @@ const { Pool } = require("pg");
 const { sendEmail } = require('./sendEmailError.js');
 const {sendEmailLimit} = require('./sendEmail_ApiLimit');
 //const { sendEmailadj } = require("./sendemailadj.js");
+    
+const { S3Client, GetObjectCommand ,HeadObjectCommand} = require('@aws-sdk/client-s3');
+const { Readable } = require('stream');
+const { ListObjectsV2Command } = require('@aws-sdk/client-s3');
+const { log } = require('console');
+
+
 
 
 // Replace these values with your PostgreSQL connection details
@@ -16,128 +23,186 @@ const {sendEmailLimit} = require('./sendEmail_ApiLimit');
     port: 5432, // Default PostgreSQL port
     };
 
+    const pool = new Pool(dbConfig);
+    
 
 
-    
-    const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
-    const { Readable } = require('stream');
-    const { ListObjectsV2Command } = require('@aws-sdk/client-s3');
-    const { log } = require('console');
-    
-  
-    
-    
-    // Configure AWS SDK v3 with your credentials
-    const s3Client = new S3Client({
-      region: 'ap-south-1',
-      credentials: {
-        accessKeyId: 'AKIAVH33EZCROLN6FKW6',
-        secretAccessKey: 'lOq1s3e4JdSMjOU0jvM4ZN0G2FY6sny+HY7sNj/X',
-      },
-    });
-    
-    
-    
-    
-    
-    // Configure AWS SDK v3 with your credentials
-    
-    
-    // Specify the bucket to list objects from
-    const bucketName = 'mymaharashtra'; // Replace with your bucket name
-    
-    // Perform a basic operation (list objects) to check the connection
-    async function checkS3Connection() {
-      const params = {
-        Bucket: bucketName,
-      };
-    
-      try {
-        const data = await s3Client.send(new ListObjectsV2Command(params));
-        console.log('Successfully connected to S3. Objects in the bucket:');
-      } catch (error) {
-        console.error('Error connecting to S3:', error);
-      }
-    }
-    
-    // Call the function to check the connection
-    checkS3Connection();
-    
-    
-    
-    
-    
-    
-    app.get('/download', async (req, res) => {
-       console.log(req.query);
-       const {lgd_code , khasra_no}  = req.query;
-       console.log(khasra_no);
-       console.log(lgd_code);
-       
-        const folderName = lgd_code;  // Assuming 'Akola' is a fixed folder
-        const fileNumber = khasra_no; 
-        const filePath = `Akola/${folderName}/${fileNumber}.pdf`;
-        
-        console.log("Inside"+folderName);
-        console.log("Inside"+fileNumber);
-    
-        // Specify the bucket and key (path) of the file on S3
-        const params = {
-            Bucket: 'mymaharashtra',
-            Key: filePath,
-        };
-    
-        try {
-            // Download the file from S3 using the new v3 SDK
-            const data = await s3Client.send(new GetObjectCommand(params));
-    
-            // Set response headers for file download
-            res.setHeader('Content-disposition', `attachment; filename=${fileNumber}.pdf`);
-            res.setHeader('Content-type', 'application/pdf');
-    
-            // Send the file data as the response
-            const readable = Readable.from(data.Body);
-            readable.pipe(res);
-        } catch (error) {
-            console.error('Error downloading file from S3:', error);
-            res.status(500).send('Internal Server Error');
-        }
-    });
-    
+// Configure AWS SDK v3 with your credentials
+const s3Client = new S3Client({
+  region: 'ap-south-1',
+  credentials: {
+    accessKeyId: 'AKIAVH33EZCROLN6FKW6',
+    secretAccessKey: 'lOq1s3e4JdSMjOU0jvM4ZN0G2FY6sny+HY7sNj/X',
+  },
+});
+
+
+
+
+
+// Configure AWS SDK v3 with your credentials
+
+
+// Specify the bucket to list objects from
+const bucketName = 'mymaharashtra'; // Replace with your bucket name
+
+// Perform a basic operation (list objects) to check the connection
+async function checkS3Connection() {
+  const params = {
+    Bucket: bucketName,
+  };
+
+  try {
+    const data = await s3Client.send(new ListObjectsV2Command(params));
+    console.log('Successfully connected to S3. Objects in the bucket:');
+  } catch (error) {
+    console.error('Error connecting to S3:', error);
+  }
+}
+
+// Call the function to check the connection
+checkS3Connection();
+
+
+
+
+async function checkLgdCodeKhasraNoExist(lgd_code, khasra_no) {
+  try {
+    //console.time('checkup all');
+   // console.log("iside chekc ");
+    const result = await pool.query(`
+      SELECT
+        (SELECT 1 FROM "Maharashtra"."Akola" WHERE lgd_code ILIKE $1 LIMIT 1) AS lgd_code_exists,
+        (SELECT 1 FROM "Maharashtra"."Akola" WHERE khasra_no ILIKE $2 LIMIT 1) AS khasra_no_exists
+    `, [lgd_code, khasra_no]);
+
+    //console.timeEnd('checkup all');
+    console.log(result.rows[0]);
+
+    const { lgd_code_exists, khasra_no_exists } = result.rows[0];
+    //console.log("k " + khasra_no_exists);
+    return {
+      lgdCodeExists: lgd_code_exists,
+      khasraNoExists: khasra_no_exists
+    };
+  } catch (error) {
+    console.error('Error checking states:', error);
+    return {
+      lgdCodeExists: false,
+      khasraNoExists: false
+    };
+  }
+}
+
+
+app.get('/download', async (req, res) => {
+   console.log(req.query);
+   const {saltKey, state, district, lgd_code, khasra_no}  = req.query;
    
 
 
+   if (!state || !district || !lgd_code || !khasra_no || !saltKey) {
+return res.status(400).json({ message: "Invalid request, missing field." });
+}
+   
+
+// Check salt key
+if (!(saltKey == "EgNIgHpqbW3ja1EgWrsPC1c4FQgJukYs9jhlswdC" )) {
+  return res.status(401).json({ message: "Incorrect or missing salt key: Unauthorized Access" });
+  }
+
+
+  if (state.toUpperCase() !== "Maharashtra".toUpperCase()  ) {    
+  return res.status(400).json({ message: `Wrong state : ${state}` });
+}
+
+if (district.toUpperCase() !== "Akola".toUpperCase()  ) {    
+  return res.status(400).json({ message: `Wrong district : ${district}` });
+}
+    
+
+
+const {lgdCodeExists , khasraNoExists} = await  checkLgdCodeKhasraNoExist(lgd_code,khasra_no);
+
+//console.log(lgdCodeExists+" code "+khasraNoExists );
+if (!lgdCodeExists) {    
+  console.log("lgd ahe");
+  return res.status(400).json({ message: `Wrong lgd Code : ${lgd_code}` });
+}
+
+if (!khasraNoExists) {    
+  return res.status(400).json({ message: `Wrong khasra No : ${khasra_no}` });
+}
+ 
+//console.log("Done checking");
 
 
 
+    
+    
+
+
+    // Specify the bucket and key (path) of the file on S3
+    
+
+    const folderName = lgd_code;  // Assuming 'Akola' is a fixed folder
+    const fileNumber = khasra_no; 
+    const pdfFilePath = `Akola/${folderName}/${fileNumber}.pdf`;
+    const zipFilePath = `Akola/${folderName}/${fileNumber}.zip`;
 
 
 
+    
+    //console.log("Inside"+folderName);
+    //console.log("Inside"+fileNumber);
+
+    // Specify the bucket and key (path) of the file on S3
+    const pdfParams = {
+      Bucket: 'mymaharashtra',
+      Key: pdfFilePath,
+  };
+
+  const zipParams = {
+    Bucket: 'mymaharashtra',
+    Key: zipFilePath,
+};
+
+   
+
+try {
+  // Check if the PDF file exists
+  await s3Client.send(new HeadObjectCommand(pdfParams));
+
+  // Set response headers for PDF file download
+  res.setHeader('Content-disposition', `attachment; filename=${fileNumber}.pdf`);
+  res.setHeader('Content-type', 'application/pdf');
+
+  // Download the PDF file from S3
+  const pdfData = await s3Client.send(new GetObjectCommand(pdfParams));
+  const pdfReadable = Readable.from(pdfData.Body);
+  pdfReadable.pipe(res);
+} catch (pdfError) {
+  // If PDF file doesn't exist, check for ZIP file
+  try {
+    const data = await s3Client.send(new GetObjectCommand(zipParams));
+
+    // Set response headers for file download
+    res.setHeader('Content-disposition', `attachment; filename=${fileNumber}.zip`);
+    res.setHeader('Content-type', 'application/zip');
+
+    // Send the file data as the response
+    const readable = Readable.from(data.Body);
+    readable.pipe(res);
+  } catch (error) {
+    console.error('Error downloading file from S3:', error);
+    return res.status(500).send('Internal Server Error');
+  }
+}
+});
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    
+  
 
 
 
@@ -171,7 +236,7 @@ return false;
 async function updateLogEntry(saltKey, lgd_code, khasra_no) {
 try {
 
-
+console.log("updateed query");
 const query = `
     INSERT INTO log2 (Salt_key, lgd_code, khasra_no, date_str)
     VALUES ($1, $2, $3, CURRENT_TIMESTAMP);
@@ -193,7 +258,7 @@ console.error('Error updating log entry:', error);
 
 // Example usage
 
-const pool = new Pool(dbConfig);
+
 
 
 //counter for each saly key
@@ -405,18 +470,20 @@ if (!rajasthanDistricts.includes(district.toUpperCase())) {
 }
 
 
-if (!(lgdCodeExists || villageExists)) {
-await sendEmail(saltKey, district,lgd_code, khasra_no);
+
+
 if (!villageExists) {
-   
+  await sendEmail(saltKey, district,lgd_code, khasra_no);
     return res.status(400).json({ message: `Wrong village: ${village}` });
   }
-  if(!lgdCodeExists){
 
+
+  if(!lgdCodeExists){
+    await sendEmail(saltKey, district,lgd_code, khasra_no);
 
    return res.status(400).json({ message: `Wrong lgd_code: ${lgd_code}` });
   }  
-}
+
 
 
 
@@ -427,48 +494,6 @@ console.error('Error checking existence:', error);
 return res.status(500).json({ message: 'Internal Server Error' });
 }
 
-
-// try{
-
-
-
-//     const tableName = district;
-//     const queryResult = await pool.query(
-//       `
-//           SELECT
-//           id
-//           FROM ${tableName}
-//           WHERE
-          
-//           TRIM(lgd_code) = $1 AND
-//           TRIM(khasra_no) = $2
-//           LIMIT 1;
-
-//     `,
-//       [lgd_code ,khasra_no]
-//     );
-
-
-//    console.log("id : "+queryResult.rows[0]); 
-
-
-//     if (queryResult.rows.length == 0) {
-
-//       await sendEmail(saltKey, district,lgd_code, khasra_no);
-//       return res.status(400).json({ message: `Khasra not found ${khasra_no}` });
-      
-//     }
-
-
-//             console.log("Khasra " + (queryResult.rows.length > 0) );
-//             bb = queryResult.rows.length;
-
-
-//   }catch(error){
-//   console.log(error);
-//   return res.status(500).send("Internal Server Error");
-
-// }
 
 
 
@@ -515,18 +540,19 @@ try {
       SELECT a.khasra_no, ST_AsText(ST_GeomFromWKB(ST_Centroid(a.geom)))
       FROM ${tableName} AS a
       JOIN ${tableName} AS b ON ST_Intersects(ST_Buffer(a.geom, 0.002), b.geom)
-      WHERE b.id =$1 AND a.id != $1;
+      WHERE b.id =$1 AND a.id != $1
+      AND a.lgd_code = $2; ;
 `,
-    [id]
+    [id,lgd_code]
   );
 
   console.timeEnd("cent")
-  let t2 = performance.now()
+
   
  
   if (customQueryResult.rows[0].length == 0) {
     await sendEmail(saltKey, district,lgd_code, khasra_no);
-    return res.status(400).json({ message: "No neighbouring polygons" });
+    return res.status(404).json({ message: "No neighbouring polygons" });
   }
 
   // apiCounter(saltKey); 
@@ -541,11 +567,11 @@ try {
       return res.json(customQueryResult.rows);
     } else {
       
-      return res.status(402).json({ message: 'Access denied! Limit reached.' });
+      return res.status(400).json({ message: 'Access denied! Limit reached.' });
     }
   } catch (error) {
     console.log(error);
-    return res.status(402).json({ message: 'API access limit exceeded' });
+    return res.status(400).json({ message: 'API access limit exceeded' });
   }
 
 
@@ -560,10 +586,6 @@ try {
 
 }
 });
-
-
-
-
 
 
 async function checkStatesExist1(lgd_code, village) {
@@ -595,10 +617,6 @@ async function checkStatesExist1(lgd_code, village) {
     };
   }
 }
-
-
-
-
 
 async function checkStatesExist(tehsil, lgd_code, village) {
   try {
@@ -744,10 +762,18 @@ if (!queryResult.rows[0].area_ac) {
   return res.status(404).json({ message: "Field area_ac not found" });
 }
 
+console.log(queryResult.rows[0]);
+
+
 const features = queryResult.rows.map((row) => {
-  return {
+  
+    x = JSON.parse(row.geometry)
+  
+    x.coordinates =  x.coordinates[0][0];
+
+    return {
     type: "Feature",
-    geometry: JSON.parse(row.geometry),
+    geometry: x,
     properties: {
       fid: row.fid,
       objectid: row.objectid,
@@ -777,7 +803,7 @@ const geoJsonResponse = {
     updateLogEntry(saltKey,lgd_code,khasra_no)
     res.status(200).json(geoJsonResponse);
   } else {
-    res.status(402).json({ message: 'Access denied! Limit reached.' });
+    res.status(400).json({ message: 'Access denied! Limit reached.' });
   }
 
 
