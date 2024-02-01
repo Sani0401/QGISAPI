@@ -5,6 +5,10 @@ const { Pool } = require("pg");
 const { sendEmail } = require('./sendEmailError.js');
 const {sendEmailLimit} = require('./sendEmail_ApiLimit');
 //const { sendEmailadj } = require("./sendemailadj.js");
+require('dotenv').config();
+
+
+
     
 const { S3Client, GetObjectCommand ,HeadObjectCommand} = require('@aws-sdk/client-s3');
 const { Readable } = require('stream');
@@ -29,13 +33,12 @@ const { log } = require('console');
 
 // Configure AWS SDK v3 with your credentials
 const s3Client = new S3Client({
-  region: 'ap-south-1',
+  region: process.env.region,
   credentials: {
-    accessKeyId: 'AKIAVH33EZCROLN6FKW6',
-    secretAccessKey: 'lOq1s3e4JdSMjOU0jvM4ZN0G2FY6sny+HY7sNj/X',
+    accessKeyId: process.env.accessKeyId,
+    secretAccessKey: process.env.secretAccessKey,
   },
 });
-
 
 
 
