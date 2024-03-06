@@ -20,10 +20,10 @@ const { log } = require('console');
 
 // Replace these values with your PostgreSQL connection details
     const dbConfig = {
-    user: "tcgs_ap",
-    host: "geoserver.quantasip.com",
-    database: "qg_verse",
-    password: "FwC&bc$2#tj4%#ZQ",
+    user: "tvcs_an",
+    host: "geoserver.google.com",
+    database: "meta_verse",
+    password: "FX**************ZQ",
     port: 5432, // Default PostgreSQL port
     };
 
